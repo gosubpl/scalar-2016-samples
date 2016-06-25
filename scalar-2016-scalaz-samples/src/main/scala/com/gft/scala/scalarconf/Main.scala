@@ -187,4 +187,51 @@ object Main extends App {
 
   println(List(dbUserV, dbNameV, dbPassV).map(applyPropsV(_, propsStringVeryBad)).sequenceU)
 
+  val monadicConfig = for {
+    user <- dbUser
+    name <- dbName
+    pass <- dbPass
+  } yield (user, name, pass)
+
+  println(monadicConfig(propsStringGood))
+
+  println(monadicConfig(propsStringBad))
+
+  val monadicConfigV = for {
+    user <- dbUserV
+    name <- dbNameV
+    pass <- dbPassV
+  } yield (user, name, pass)
+
+  println(monadicConfigV(propsStringGood))
+
+  println(monadicConfigV(propsStringBad))
+
+  def readPropertyM(prop: String)(acc: List[String], props: List[String]): \/[String, List[String]] =
+    props.find(_.startsWith(prop + "=")).map(_.replace(prop + "=", "")) match {
+      case None => ("Property " + prop + " not found in config").left
+      case Some(s) => (s :: acc).right[String]
+    }
+
+  val dbUserM = readPropertyM("db.user") (_, _)
+  val dbNameM = readPropertyM("db.name") (_, _)
+  val dbPassM = readPropertyM("db.pass") (_, _)
+
+  def monadicConfigMFor(props: List[String]) = for {
+    validatedUser <- dbUserM(List[String](), props)
+    validatedNameAndUser <- dbNameM(validatedUser, props)
+    validatedNameUserAndPass<- dbPassM(validatedNameAndUser, props)
+  } yield validatedNameUserAndPass
+
+  println(monadicConfigMFor(propsStringGood))
+
+  def monadicConfigM(props: List[String]) = dbUserM(List[String](), props) >>= (acc => dbNameM(acc, props)) >>= (acc => dbPassM(acc, props))
+
+  println(monadicConfigM(propsStringGood))
+
+  println(monadicConfigM(propsStringBad))
+
+  println(monadicConfigM(propsStringVeryBad))
+
+
 }
